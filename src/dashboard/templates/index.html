@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Processor Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #334155;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        h1 {
+            color: #1e293b;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+
+        .status-message {
+            text-align: center;
+            font-style: italic;
+            color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+
+        .task-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .task-table th, .task-table td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .task-table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+        }
+
+        .task-table tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .progress-container {
+            width: 100%;
+            background-color: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+            height: 0.75rem;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-bar[data-status="pending"] {
+            background-color: #94a3b8;
+        }
+
+        .progress-bar[data-status="processing"] {
+            background-color: #3b82f6;
+        }
+
+        .progress-bar[data-status="completed"] {
+            background-color: #10b981;
+        }
+
+        .progress-bar[data-status="failed"] {
+            background-color: #ef4444;
+        }
+        
+        .status-cell {
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .status-cell[data-status="pending"] {
+            color: #94a3b8;
+        }
+
+        .status-cell[data-status="processing"] {
+            color: #3b82f6;
+        }
+
+        .status-cell[data-status="completed"] {
+            color: #10b981;
+        }
+
+        .status-cell[data-status="failed"] {
+            color: #ef4444;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Media Processing Dashboard</h1>
+        <div class="status-message">Loading task data...</div>
+        <table class="task-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>File Path</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody id="task-list">
+                <!-- Task rows will be inserted here by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = '/api/tasks';
+        const taskList = document.getElementById('task-list');
+        const statusMessage = document.querySelector('.status-message');
+
+        const fetchTasks = async () => {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const tasks = await response.json();
+                updateDashboard(tasks);
+                statusMessage.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                console.error("Failed to fetch tasks:", error);
+                statusMessage.textContent = "Error: Failed to load data.";
+            }
+        };
+
+        const updateDashboard = (tasks) => {
+            taskList.innerHTML = '';
+            if (tasks.length === 0) {
+                const row = taskList.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 5;
+                cell.textContent = "No tasks found.";
+                cell.style.textAlign = "center";
+                return;
+            }
+
+            tasks.forEach(task => {
+                const row = taskList.insertRow();
+                row.innerHTML = `
+                    <td>${task.id}</td>
+                    <td>${task.file_path}</td>
+                    <td class="status-cell" data-status="${task.status.toLowerCase()}">${task.status}</td>
+                    <td>
+                        <div class="progress-container">
+                            <div class="progress-bar" 
+                                style="width: ${task.progress || 0}%" 
+                                data-status="${task.status.toLowerCase()}">
+                            </div>
+                        </div>
+                    </td>
+                    <td>${task.updated_at}</td>
+                `;
+            });
+        };
+
+        // Fetch tasks on initial load
+        fetchTasks();
+
+        // Fetch tasks every 3 seconds
+        setInterval(fetchTasks, 3000);
+
+    </script>
+</body>
+</html>
+
