@@ -1,130 +1,136 @@
 import os
 import subprocess
-import json
-import re
-import math
 import logging
+import re
+from datetime import datetime
+
 from processors import Processor
 
 class HevcScaleProcessor(Processor):
     """
-    Processor to scale video files using HEVC encoding.
+    Processor to scale HEVC video files to a specified height.
     """
     def __init__(self, config, debug=False):
         super().__init__(config, debug)
-        self.logger = logging.getLogger(__name__)
 
-    def _get_output_path(self, input_path, processing_params):
+    def _get_output_path(self, input_path, output_path, output_file_extension):
         """
-        Generates the output file path for the scaled video.
+        Constructs the output file path based on the configuration.
         """
-        if 'output_file_extension' in self.config:
-            output_extension = self.config['output_file_extension']
-        else:
-            output_extension = os.path.splitext(input_path)[1]
+        # Ensure the output directory exists
+        output_parent_folder = self.config.get('output_parent_folder')
         
-        output_parent_folder = self.config.get('output_parent_folder', 'outbox')
-        input_path_prefix = processing_params.get('input_path_prefix', '')
+        output_dir = os.path.join(output_parent_folder, output_path)
+        os.makedirs(output_dir, exist_ok=True)
         
-        # Ensure the output path is correctly formed using the prefix and base filename
-        base_filename = os.path.basename(input_path)
-        output_folder = os.path.join(output_parent_folder, input_path_prefix)
-        output_file_name = f"{os.path.splitext(base_filename)[0]}{output_extension}"
-        output_path = os.path.join(output_folder, output_file_name)
+        file_name = os.path.basename(input_path)
+        base_name, _ = os.path.splitext(file_name)
 
-        os.makedirs(output_folder, exist_ok=True)
+        output_file_name = f"{base_name}.{output_file_extension}"
         
-        if self.debug:
-            print(f"DEBUG: Generated output path: {output_path}")
+        return os.path.join(output_dir, output_file_name)
 
-        return output_path
+    def _get_video_duration(self, input_path):
+        """
+        Gets the duration of the video in seconds using ffprobe.
+        """
+        try:
+            command = [
+                'ffprobe',
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                input_path
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            return float(result.stdout)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Error getting video duration: {e}")
+            return None
 
     def process(self, input_path, task_id, db, **kwargs):
         """
-        Processes a video file by scaling it to a specified height.
+        Processes a media file by scaling its height.
         """
         if self.debug:
             print(f"DEBUG: Starting HEVC scaling process for '{input_path}' to height {kwargs.get('height')}.")
 
-        output_path = self._get_output_path(input_path, kwargs)
+        height = kwargs.get('height')
+        output_path = kwargs.get('output_path')
+        output_file_extension = kwargs.get('output_file_extension')
         
-        if self.debug:
-            print(f"DEBUG: Generated output path: {output_path}")
+        # Check if the height is valid
+        if not height or not isinstance(height, int):
+            print(f"Error: Invalid height parameter '{height}'. Skipping task.")
+            db.update_task_status(task_id, 'failed')
+            return
 
-        ffmpeg_cmd = [
+        # Build the output path
+        output_file_path = self._get_output_path(input_path, output_path, output_file_extension)
+
+        if self.debug:
+            print(f"DEBUG: Final height value for FFmpeg: {height}")
+            print(f"DEBUG: Final output path for FFmpeg: {output_file_path}")
+
+        # FFmpeg command to scale height while maintaining aspect ratio and using HEVC codec
+        command = [
             'ffmpeg',
             '-i', input_path,
-            '-vf', f'scale=-2:{kwargs.get("height")}',
+            '-vf', f'scale=-2:{height}',
             '-c:v', 'libx265',
             '-crf', '28',
             '-preset', 'fast',
             '-c:a', 'copy',
-            output_path
+            output_file_path
         ]
-        
-        if self.debug:
-            print(f"DEBUG: FFmpeg command: {' '.join(ffmpeg_cmd)}")
-            
-        try:
-            db.update_task_status(task_id, 'processing')
-            process = subprocess.Popen(
-                ffmpeg_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True
-            )
 
-            total_duration_secs = self._get_media_duration(input_path)
+        if self.debug:
+            print(f"DEBUG: FFmpeg command: {' '.join(command)}")
+
+        total_duration = self._get_video_duration(input_path)
+        if not total_duration:
+            print(f"Error: Could not determine video duration. Skipping progress tracking.")
+            db.update_task_status(task_id, 'failed')
+            return
+
+        try:
+            # Use subprocess to run the command and capture output
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
-            for line in process.stdout:
-                progress = self._parse_progress(line, total_duration_secs)
-                if progress is not None:
+            # Regex to find the time and speed in FFmpeg's output
+            time_pattern = re.compile(r'time=(\d{2}):(\d{2}):(\d{2}).(\d{2})')
+
+            while True:
+                line = process.stderr.readline()
+                if not line:
+                    break
+                
+                # Search for the time pattern to calculate progress
+                match = time_pattern.search(line)
+                if match:
+                    hours, minutes, seconds, hundredths = match.groups()
+                    current_time = int(hours) * 3600 + int(minutes) * 60 + int(seconds) + int(hundredths) / 100
+                    
+                    progress = (current_time / total_duration) * 100
+                    
+                    if self.debug:
+                        print(f"DEBUG: Calculated progress: {progress:.2f}%")
+                    
                     db.update_task_progress(task_id, progress)
 
-            process.wait()
+            return_code = process.wait()
 
-            if process.returncode == 0:
+            if return_code == 0:
+                print(f"FFmpeg process for '{input_path}' completed successfully.")
                 db.update_task_status(task_id, 'completed')
-                if self.debug:
-                    print(f"DEBUG: FFmpeg process for '{input_path}' completed successfully.")
             else:
+                print(f"Error: FFmpeg process for '{input_path}' failed with return code {return_code}.")
                 db.update_task_status(task_id, 'failed')
-                print(f"Error: FFmpeg process for '{input_path}' failed with return code {process.returncode}.")
 
         except FileNotFoundError:
+            print("Error: FFmpeg or FFprobe not found. Please ensure they are installed and in your system's PATH.")
             db.update_task_status(task_id, 'failed')
-            print("Error: ffmpeg command not found. Please ensure FFmpeg is installed and in your system's PATH.")
         except Exception as e:
+            print(f"FFmpeg processing failed: {e}")
             db.update_task_status(task_id, 'failed')
-            print(f"An unrecoverable error occurred during FFmpeg processing: {e}")
-
-    def _get_media_duration(self, file_path):
-        """
-        Gets the duration of a media file in seconds using ffprobe.
-        """
-        cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', file_path]
-        try:
-            output = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.DEVNULL)
-            return float(output)
-        except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
-            self.logger.warning("Could not get media duration with ffprobe. Progress will not be reported.")
-            return None
-            
-    def _parse_progress(self, line, total_duration_secs):
-        """
-        Parses FFmpeg output to get the current processing progress.
-        """
-        if total_duration_secs is None:
-            return None
-
-        time_match = re.search(r'time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})', line)
-        if time_match:
-            hours = int(time_match.group(1))
-            minutes = int(time_match.group(2))
-            seconds = int(time_match.group(3))
-            current_time_secs = hours * 3600 + minutes * 60 + seconds
-            progress = math.floor((current_time_secs / total_duration_secs) * 100)
-            return max(0, min(100, progress))
-            
-        return None
 
