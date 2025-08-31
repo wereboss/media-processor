@@ -1,0 +1,16 @@
+{
+    "input_parent_folder": "/home/sayang/Programs/MediaProcessing/PyScripts/inbox",
+    "output_parent_folder": "/home/sayang/Programs/MediaProcessing/PyScripts/outbox",
+    "database_path": "/home/sayang/Programs/MediaProcessing/PyScripts/media-processor/data/progress.db",
+    "monitoring_interval": 5,
+    "processors": 
+      [
+        {
+          "name": "HEVC Scaler",
+          "input_path": "video_HEVC_height",
+          "processor": "hevc_scale_processor",
+          "output_path": "video_HEVC",
+          "output_file_extension": "mp4"
+        }
+      ]
+}
