@@ -46,6 +46,11 @@ class HevcScaleProcessor(Processor):
         # Construct the output path and command
         output_path = self._get_output_path(input_path, output_path_suffix, output_extension)
         self.logger.debug(f"Final output path for FFmpeg: {output_path}")
+        # Delete the output file if it already exists to prevent FFmpeg from hanging
+        if os.path.exists(output_path):
+            self.logger.debug(f"Output file '{output_path}' already exists. Deleting it.")
+            os.remove(output_path)
+
 
         command = [
             'ffmpeg',
