@@ -92,6 +92,55 @@ def test_processor_loading(config, logger):
     finally:
         logger.info("--- Processor Loading Test Finished ---")
 
+def test_hevc_scaler(config, logger):
+    """Tests the HEVC Scaler processor with hardcoded inputs."""
+    logger.info("--- Starting HEVC Scaler Test ---")
+
+    # Initialize a temporary database
+    try:
+        db = Database(config=config, debug=True)
+        db.initialize_database()
+    except Exception as e:
+        logger.error(f"Error initializing database for HEVC Scaler test: {e}")
+        return
+
+    # Initialize HEVC Scaler processor
+    try:
+        # Get the processor class
+        processor_class = load_processors(config, db, True)
+        # Instantiate the class with required arguments
+        hevc_scaler = processor_class.get("HEVC Scaler")
+        
+        # Hardcoded inputs to simulate a task from the MediaController
+        input_file = os.path.join(os.path.dirname(__file__), 'tests', 'sample_video.mp4')
+        task_id = 1
+        params = ["360"]
+
+        # Create a mock video file for testing
+        mock_video_path = os.path.join(os.path.dirname(__file__), 'tests', 'sample_video.mp4')
+        os.makedirs(os.path.dirname(mock_video_path), exist_ok=True)
+        # Create a tiny mock video using ffmpeg
+        os.system(f"ffmpeg -f lavfi -i testsrc=size=1280x720:rate=1 -t 5 -c:v libx264 -pix_fmt yuv420p {mock_video_path}")
+
+        logger.info(f"Testing HEVC Scaler with file: {input_file}")
+        
+        # Call the process method directly
+        output_files = hevc_scaler.process(input_file, task_id, params)
+
+        # Check if output files were returned
+        if output_files:
+            logger.info("HEVC Scaler test completed successfully.")
+            logger.info(f"Generated output files: {output_files}")
+        else:
+            logger.error("HEVC Scaler test failed: No output files were returned.")
+        
+    except Exception as e:
+        logger.error(f"Error running HEVC Scaler test: {e}")
+    
+    db.close()
+    logger.info("--- HEVC Scaler Test Finished ---")
+
+
 def test_media_controller(config, logger):
     """Tests the MediaController component independently."""
     logger.info("--- Starting MediaController Test ---")
@@ -124,7 +173,7 @@ def test_media_controller(config, logger):
 def main():
     """Main function to run the test suite."""
     parser = argparse.ArgumentParser(description="Run tests for media processor components.")
-    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading'],
+    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading', 'hevc_scaler'],
                         help='The component to test.')
     parser.add_argument('--config_path', type=str, default='config/config.json',
                         help='Path to the configuration file.')
@@ -149,6 +198,8 @@ def main():
         test_media_controller(config, logger)
     elif args.test_component == 'processor_loading':
         test_processor_loading(config, logger)
+    elif args.test_component == 'hevc_scaler':
+        test_hevc_scaler(config, logger)
     
 if __name__ == "__main__":
     main()
