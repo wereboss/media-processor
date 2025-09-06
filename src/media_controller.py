@@ -47,7 +47,7 @@ class MediaController:
             self.logger.debug(f"Received param str : {processing_params_str}")
             try:
                 # Deserialize params from the database
-                params = json.loads(json.loads(processing_params_str))
+                params = json.loads(processing_params_str)
                 self.logger.debug(f"Deserialized params for processor: {params}")
 
                 processor = self.processors.get(processor_name)

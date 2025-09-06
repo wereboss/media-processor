@@ -70,8 +70,8 @@ class FileMonitor:
                     processor_name = processor_config['name']
                     # Get processor-specific params from the sub-path
                     params = self._get_processor_params(input_path_suffix)
-                    
+                    self.logger.debug(f"get_processor_params returned params:{params}")
                     # Add task to the database
-                    if self.db.add_task(file_path, processor_name, json.dumps(params)):
+                    if self.db.add_task(file_path, processor_name, params):
                         self.logger.info(f"Task added for '{file_path}' with processor '{processor_name}'.")
 
