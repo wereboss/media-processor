@@ -1,15 +1,24 @@
-import sys
-import os
 import time
+import os
 import argparse
 import json
+import logging
+import sys
 
-# Add the 'src' directory to the system path to allow for package imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+# Add the src directory to the system path to allow absolute imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 from file_monitor import FileMonitor
 from media_controller import MediaController
 from database import Database
+
+def setup_logging(debug_mode):
+    """Sets up basic logging configuration."""
+    log_level = logging.DEBUG if debug_mode else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
 def main():
     """Main function to run the application."""
@@ -18,40 +27,43 @@ def main():
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     args = parser.parse_args()
 
-    if args.debug:
-        print("DEBUG: Debug mode is enabled.")
+    # Setup logging first
+    setup_logging(args.debug)
+    logger = logging.getLogger("main")
+    logger.debug("Debug mode is enabled.")
 
     # Load configuration
     try:
         with open(args.config_path, 'r') as f:
             config = json.load(f)
+        logger.debug("Configuration loaded successfully.")
     except FileNotFoundError:
-        print(f"Error: Configuration file not found at {args.config_path}")
+        logger.error(f"Error: Configuration file not found at {args.config_path}")
         return
     except json.JSONDecodeError:
-        print(f"Error: Invalid JSON in configuration file at {args.config_path}")
+        logger.error(f"Error: Invalid JSON in configuration file at {args.config_path}")
         return
 
     # Initialize Database
     try:
-        db = Database(args.config_path, debug=args.debug)
+        db = Database(config, debug=args.debug)
         if not db.initialize_database():
-            print("Unrecoverable error during initialization: Could not initialize database.")
+            logger.error("Unrecoverable error during initialization: Could not initialize database.")
             return
     except Exception as e:
-        print(f"Unrecoverable error during initialization: {e}")
+        logger.error(f"Unrecoverable error during initialization: {e}")
         return
     
     # Initialize components
     try:
-        # FileMonitor and MediaController share the same database instance
-        file_monitor = FileMonitor(args.config_path, db=db, debug=args.debug)
-        media_controller = MediaController(config_path=args.config_path, db=db, debug=args.debug)
+        # Pass the config dictionary directly to the FileMonitor
+        file_monitor = FileMonitor(config=config, db=db, debug=args.debug)
+        media_controller = MediaController(config=config, db=db, debug=args.debug)
     except Exception as e:
-        print(f"Unrecoverable error during initialization: {e}")
+        logger.error(f"Unrecoverable error during initialization: {e}")
         return
 
-    print("Application started. Monitoring for new files and processing tasks...")
+    logger.info("Application started. Monitoring for new files and processing tasks...")
     
     # Main loop
     try:
@@ -60,7 +72,7 @@ def main():
             media_controller.process_pending_tasks()
             time.sleep(config.get('monitoring_interval', 5))
     except KeyboardInterrupt:
-        print("Application stopped by user.")
+        logger.info("Application stopped by user.")
     finally:
         db.close()
 

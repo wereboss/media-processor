@@ -1,63 +1,69 @@
-import os
 import json
 import sqlite3
+import os
+import threading
 from flask import Flask, jsonify, render_template
 
-app = Flask(__name__)
-config = {}
-db_path = ""
-# A simple in-memory cache to store task info
-# This is a simple solution for this example to reduce database queries.
-# For production, a more robust caching solution like Redis would be ideal.
-task_cache = {}
+# Lock for thread-safe database access
+DB_LOCK = threading.Lock()
 
-def get_db_connection():
-    """Establishes a connection to the SQLite database."""
-    conn = sqlite3.connect(db_path)
+def get_db_connection(db_path):
+    """Establishes and returns a new database connection."""
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_tasks(db_path):
+    """Fetches all tasks from the database."""
+    with DB_LOCK:
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tasks ORDER BY id DESC")
+        tasks = cursor.fetchall()
+        conn.close()
+    return tasks
+
+def load_config(config_path):
+    """Loads configuration from a JSON file."""
+    try:
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+app = Flask(__name__, template_folder='templates')
+app.config['CONFIG'] = load_config('config.json')
+
+if not app.config['CONFIG']:
+    raise FileNotFoundError("Dashboard config.json not found.")
+
 @app.route('/')
 def index():
-    """Serves the main dashboard page."""
     return render_template('index.html')
 
 @app.route('/api/tasks')
-def get_tasks():
-    """API endpoint to get all tasks from the database."""
-    conn = None
+def api_tasks():
+    db_path = app.config['CONFIG']['database_path']
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, file_path, status, progress, updated_at FROM tasks ORDER BY updated_at DESC")
-        tasks = cursor.fetchall()
-        
-        # Convert rows to a list of dictionaries for JSON serialization
-        tasks_list = [dict(task) for task in tasks]
-        return jsonify(tasks_list)
+        tasks = get_tasks(db_path)
+        task_list = []
+        for task in tasks:
+            task_dict = dict(task)
+            # Ensure output_files is a list
+            if isinstance(task_dict.get('output_files'), str):
+                try:
+                    task_dict['output_files'] = json.loads(task_dict['output_files'])
+                except json.JSONDecodeError:
+                    task_dict['output_files'] = []
+            else:
+                task_dict['output_files'] = []
+
+            task_list.append(task_dict)
+        return jsonify(task_list)
     except sqlite3.Error as e:
-        app.logger.error(f"Database error: {e}")
-        return jsonify({"error": "Failed to retrieve tasks"}), 500
-    finally:
-        if conn:
-            conn.close()
+        print(f"Database error while getting all tasks: {e}")
+        return jsonify({"error": "Database error"}), 500
 
 if __name__ == '__main__':
-    # Load configuration from the JSON file
-    config_file_path = os.path.join(os.path.dirname(__file__), 'config.json')
-    try:
-        with open(config_file_path, 'r') as f:
-            config = json.load(f)
-        db_path = config.get('database_path', 'progress.db')
-        host = config.get('host', '127.0.0.1')
-        port = config.get('port', 5000)
-    except FileNotFoundError:
-        print(f"Error: Configuration file not found at {config_file_path}")
-        exit()
-    except json.JSONDecodeError:
-        print(f"Error: Invalid JSON in configuration file at {config_file_path}")
-        exit()
-    
-    # Run the Flask app
-    app.run(debug=True, host=host, port=port)
+    app.run(host=app.config['CONFIG']['host'], port=app.config['CONFIG']['port'])
 
