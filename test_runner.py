@@ -73,16 +73,58 @@ def test_file_monitor(config, logger):
     db.close()
     logger.info("--- FileMonitor Test Finished ---")
 
+def test_processor_loading(config, logger):
+    """Tests the processor loading functionality."""
+    logger.info("--- Starting Processor Loading Test ---")
+    try:
+        # We don't need a DB connection here, just the config
+        processors = load_processors(config, db=None, debug=True)
+        
+        if 'HEVC Scaler' in processors:
+            logger.info("Processor 'HEVC Scaler' loaded successfully.")
+            logger.info(f"Loaded processors: {list(processors.keys())}")
+        else:
+            logger.error("Processor 'HEVC Scaler' was not found after loading.")
+            logger.debug(f"Processors dictionary: {processors}")
+
+    except Exception as e:
+        logger.error(f"Error during processor loading test: {e}")
+    finally:
+        logger.info("--- Processor Loading Test Finished ---")
+
 def test_media_controller(config, logger):
     """Tests the MediaController component independently."""
     logger.info("--- Starting MediaController Test ---")
-    # This section will be implemented later
+    
+    # Initialize Database
+    try:
+        db = Database(config=config, debug=True)
+        db.initialize_database()
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        return
+        
+    logger.info("--- Database Contents BEFORE Test ---")
+    print_database_contents(db, logger)
+
+    # Initialize MediaController
+    try:
+        media_controller = MediaController(config=config, db=db, debug=True)
+        media_controller.process_pending_tasks()
+        logger.info("MediaController test completed. Check logs for updated tasks.")
+    except Exception as e:
+        logger.error(f"Error running MediaController test: {e}")
+
+    logger.info("--- Database Contents AFTER Test ---")
+    print_database_contents(db, logger)
+        
+    db.close()
     logger.info("--- MediaController Test Finished ---")
 
 def main():
     """Main function to run the test suite."""
     parser = argparse.ArgumentParser(description="Run tests for media processor components.")
-    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller'],
+    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading'],
                         help='The component to test.')
     parser.add_argument('--config_path', type=str, default='config/config.json',
                         help='Path to the configuration file.')
@@ -105,6 +147,8 @@ def main():
         test_file_monitor(config, logger)
     elif args.test_component == 'media_controller':
         test_media_controller(config, logger)
+    elif args.test_component == 'processor_loading':
+        test_processor_loading(config, logger)
     
 if __name__ == "__main__":
     main()
