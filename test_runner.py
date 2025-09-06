@@ -107,9 +107,9 @@ def test_hevc_scaler(config, logger):
     # Initialize HEVC Scaler processor
     try:
         # Get the processor class
-        processor_class = load_processors(config, db, True)
+        processors = load_processors(config, db, True)
         # Instantiate the class with required arguments
-        hevc_scaler = processor_class.get("HEVC Scaler")
+        hevc_scaler = processors.get("HEVC Scaler")
         
         # Hardcoded inputs to simulate a task from the MediaController
         input_file = os.path.join(os.path.dirname(__file__), 'tests', 'sample_video.mp4')

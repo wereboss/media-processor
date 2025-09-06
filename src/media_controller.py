@@ -44,10 +44,10 @@ class MediaController:
         for task in pending_tasks:
             task_id, file_path, processor_name, processing_params_str, status, output_files = task
             self.logger.info(f"Starting processing for task {task_id} on file '{file_path}'...")
-            
+            self.logger.debug(f"Received param str : {processing_params_str}")
             try:
                 # Deserialize params from the database
-                params = json.loads(processing_params_str)
+                params = json.loads(json.loads(processing_params_str))
                 self.logger.debug(f"Deserialized params for processor: {params}")
 
                 processor = self.processors.get(processor_name)
