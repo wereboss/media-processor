@@ -87,20 +87,16 @@
                             row.className = 'hover:bg-gray-50';
 
                             let statusColor = 'bg-gray-400';
-                            let progressWidth = 0;
+                            let progressWidth = task.progress || 0;
 
                             if (task.status === 'completed') {
                                 statusColor = 'bg-green-500';
-                                progressWidth = 100;
                             } else if (task.status === 'processing') {
                                 statusColor = 'bg-blue-500';
-                                progressWidth = task.progress || 0;
                             } else if (task.status === 'failed') {
                                 statusColor = 'bg-red-500';
-                                progressWidth = 0;
                             } else if (task.status === 'pending') {
                                 statusColor = 'bg-yellow-500';
-                                progressWidth = 0;
                             }
 
                             // Safely parse output_files from a string to an array
