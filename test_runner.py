@@ -62,8 +62,24 @@ def test_file_monitor(config, logger):
     # Initialize FileMonitor
     try:
         file_monitor = FileMonitor(config=config, db=db, debug=True)
-        file_monitor.check_for_new_files()
-        logger.info("FileMonitor test completed. Check logs for new tasks.")
+        staleness_check_count = config.get('staleness_check_count', 3)
+        monitoring_interval = config.get('monitoring_interval', 5)
+
+        logger.info(f"Simulating {staleness_check_count + 1} monitoring cycles with an interval of {monitoring_interval}s.")
+
+        # Simulate a mock file being placed in the input folder
+        mock_file_path = os.path.join(file_monitor.input_parent_folder, "video_HEVC_height", "360", "sample_test_video.mp4")
+        os.makedirs(os.path.dirname(mock_file_path), exist_ok=True)
+        with open(mock_file_path, 'wb') as f:
+            f.write(b'this is a test file to simulate transfer')
+        
+        # Loop to simulate monitoring cycles
+        for i in range(staleness_check_count + 1):
+            logger.debug(f"Monitoring cycle {i+1}/{staleness_check_count+1}")
+            file_monitor.check_for_new_files()
+            time.sleep(monitoring_interval)
+            
+        logger.info("FileMonitor test completed.")
     except Exception as e:
         logger.error(f"Error running FileMonitor test: {e}")
 

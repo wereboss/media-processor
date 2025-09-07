@@ -12,6 +12,13 @@
           "processor": "hevc_scale_processor",
           "output_path": "video_HEVC",
           "output_file_extension": "mp4"
+        },
+        {
+          "name": "Volume Scaler",
+          "input_path": "video_volume_increase",
+          "processor": "volume_scaler_processor",
+          "output_path": "video_volume",
+          "output_file_extension": "mp4"
         }
       ]
 }
