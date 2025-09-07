@@ -204,6 +204,55 @@ def test_volume_scaler(config, logger):
     logger.info("--- Volume Scaler Test Finished ---")
 
 
+def test_file_monitor_purge(config, logger):
+    """Tests the FileMonitor's purge_completed_inputs method."""
+    logger.info("--- Starting File Monitor Purge Test ---")
+
+    # Initialize Database
+    try:
+        db = Database(config=config, debug=True)
+        db.initialize_database()
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        return
+
+    # Create a mock completed task in the database
+    mock_file_path = os.path.join(os.path.dirname(__file__), "tests", "mock_file_to_purge.mp4")
+    os.makedirs(os.path.dirname(mock_file_path), exist_ok=True)
+    with open(mock_file_path, 'wb') as f:
+        f.write(b'This is a mock file to be purged.')
+
+    # Manually add a completed task to the database
+    task_id = db.add_task(mock_file_path, "HEVC Scaler", json.dumps(["360"]))
+    db.update_task_status(task_id, 'completed')
+    db.update_task_output_files(task_id, json.dumps(["/some/output/path.mp4"]))
+
+    logger.info(f"Created mock file at {mock_file_path} and added a completed task to the database.")
+    
+    logger.info("--- Database Contents BEFORE Purge ---")
+    print_database_contents(db, logger)
+
+    # Initialize FileMonitor and run the purge
+    try:
+        file_monitor = FileMonitor(config=config, db=db, debug=True)
+        file_monitor.purge_completed_inputs()
+        logger.info("Purge process completed.")
+    except Exception as e:
+        logger.error(f"Error during purge process: {e}")
+        
+    logger.info("--- Database Contents AFTER Purge ---")
+    print_database_contents(db, logger)
+
+    # Check if the file was deleted
+    if not os.path.exists(mock_file_path):
+        logger.info(f"SUCCESS: The input file at {mock_file_path} was correctly purged.")
+    else:
+        logger.error(f"FAILURE: The input file at {mock_file_path} was NOT purged.")
+
+    db.close()
+    logger.info("--- File Monitor Purge Test Finished ---")
+
+
 def test_media_controller(config, logger):
     """Tests the MediaController component independently."""
     logger.info("--- Starting MediaController Test ---")
@@ -236,7 +285,7 @@ def test_media_controller(config, logger):
 def main():
     """Main function to run the test suite."""
     parser = argparse.ArgumentParser(description="Run tests for media processor components.")
-    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading', 'hevc_scaler', 'volume_scaler'],
+    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading', 'hevc_scaler', 'volume_scaler', 'file_monitor_purge'],
                         help='The component to test.')
     parser.add_argument('--config_path', type=str, default='config/config.json',
                         help='Path to the configuration file.')
@@ -265,6 +314,8 @@ def main():
         test_hevc_scaler(config, logger)
     elif args.test_component == 'volume_scaler':
         test_volume_scaler(config, logger)
+    elif args.test_component == 'file_monitor_purge':
+        test_file_monitor_purge(config, logger)
     
 if __name__ == "__main__":
     main()

@@ -123,6 +123,17 @@ class Database:
             logging.error(f"Database error while getting pending tasks: {e}")
             return []
             
+    def get_completed_tasks(self):
+        """
+        Retrieves all completed tasks that have not yet been purged.
+        """
+        try:
+            self.cursor.execute("SELECT id, file_path, processor, processing_params, status, progress, output_files FROM tasks WHERE status = 'completed'")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logging.error(f"Database error while getting completed tasks: {e}")
+            return []
+
     def update_task_progress(self, task_id, progress, status=None):
         """Updates the progress and optional status of a task."""
         try:
@@ -134,15 +145,6 @@ class Database:
         except sqlite3.Error as e:
             logging.error(f"Database error while updating task progress: {e}")
 
-    def get_all_tasks(self):
-        """Retrieves all tasks from the database."""
-        try:
-            self.cursor.execute("SELECT id, file_path, processor, processing_params, output_files, status, progress FROM tasks ORDER BY id DESC")
-            return self.cursor.fetchall()
-        except sqlite3.Error as e:
-            logging.error(f"Database error while getting all tasks: {e}")
-            return []
-
     def update_task_status(self, task_id, status, error_message=None):
         """Updates the status of a task."""
         try:
@@ -150,6 +152,8 @@ class Database:
                 self.cursor.execute("UPDATE tasks SET status = ?, progress = 100.0, end_time = CURRENT_TIMESTAMP WHERE id = ?", (status, task_id))
             elif status == 'failed':
                 self.cursor.execute("UPDATE tasks SET status = ?, end_time = CURRENT_TIMESTAMP, error_message = ? WHERE id = ?", (status, error_message, task_id))
+            elif status == 'purged':
+                self.cursor.execute("UPDATE tasks SET status = ? WHERE id = ?", (status, task_id))
             else:
                 self.cursor.execute("UPDATE tasks SET status = ? WHERE id = ?", (status, task_id))
             self.conn.commit()
@@ -163,4 +167,12 @@ class Database:
             self.conn.commit()
         except sqlite3.Error as e:
             logging.error(f"Database error while updating output files: {e}")
+    def get_all_tasks(self):
+        """Retrieves all tasks from the database."""
+        try:
+            self.cursor.execute("SELECT id, file_path, processor, processing_params, output_files, status, progress FROM tasks ORDER BY id DESC")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logging.error(f"Database error while getting all tasks: {e}")
+            return []
 

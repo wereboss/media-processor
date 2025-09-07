@@ -117,3 +117,33 @@ class FileMonitor:
         for p in files_to_remove:
             self.logger.debug(f"File '{p}' removed from monitoring as it no longer exists.")
             del self.file_status[p]
+
+    # NEW: Method to purge completed input files
+    def purge_completed_inputs(self):
+        """
+        Deletes the input files for all successfully completed tasks
+        and updates their status to 'purged' in the database.
+        """
+        self.logger.info("Starting purge of completed input files...")
+        completed_tasks = self.db.get_completed_tasks()
+        
+        if not completed_tasks:
+            self.logger.info("No completed tasks to purge.")
+            return
+
+        for task in completed_tasks:
+            task_id, input_path, _, _, _, _, _ = task
+            self.logger.debug(f"Checking task {task_id} for input file to purge: {input_path}")
+            
+            if os.path.exists(input_path):
+                try:
+                    os.remove(input_path)
+                    self.db.update_task_status(task_id, 'purged')
+                    self.logger.info(f"Successfully purged input file for task {task_id}: {input_path}")
+                except OSError as e:
+                    self.logger.error(f"Error purging input file for task {task_id}: {e}")
+            else:
+                self.logger.warning(f"Input file for task {task_id} not found: {input_path}. Updating status to 'purged' anyway.")
+                self.db.update_task_status(task_id, 'purged')
+        
+        self.logger.info("Purge process finished.")

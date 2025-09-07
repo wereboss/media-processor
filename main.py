@@ -70,6 +70,7 @@ def main():
         while True:
             file_monitor.check_for_new_files()
             media_controller.process_pending_tasks()
+            file_monitor.purge_completed_inputs()
             time.sleep(config.get('monitoring_interval', 5))
     except KeyboardInterrupt:
         logger.info("Application stopped by user.")
@@ -78,4 +79,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
