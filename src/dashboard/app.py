@@ -34,6 +34,7 @@ def load_config(config_path):
 app = Flask(__name__, template_folder='templates')
 app.config['CONFIG'] = load_config('config.json')
 
+
 if not app.config['CONFIG']:
     raise FileNotFoundError("Dashboard config.json not found.")
 
@@ -46,8 +47,10 @@ def api_tasks():
     db_path = app.config['CONFIG']['database_path']
     try:
         tasks = get_tasks(db_path)
+        print(f"Receivced from get_tasks: {tasks}")
         task_list = []
         for task in tasks:
+            print(f"individual task: {tasks}")
             task_dict = dict(task)
             # Ensure output_files is a list
             if isinstance(task_dict.get('output_files'), str):
@@ -59,6 +62,7 @@ def api_tasks():
                 task_dict['output_files'] = []
 
             task_list.append(task_dict)
+        print(f"Final task list to send to frontend: {json.dumps(task_list)}")
         return jsonify(task_list)
     except sqlite3.Error as e:
         print(f"Database error while getting all tasks: {e}")

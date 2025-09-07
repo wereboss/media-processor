@@ -46,6 +46,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Processor</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Params</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Output Files</th>
                         </tr>
                     </thead>
@@ -69,7 +70,7 @@
                     
                     tableBody.innerHTML = '';
                     if (tasks.length === 0) {
-                        tableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">No tasks found.</td></tr>`;
+                        tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No tasks found.</td></tr>`;
                     } else {
                         tasks.forEach(task => {
                             const row = document.createElement('tr');
@@ -83,7 +84,7 @@
                                 progressWidth = 100;
                             } else if (task.status === 'processing') {
                                 statusColor = 'bg-blue-500';
-                                progressWidth = task.progress;
+                                progressWidth = task.progress || 0;
                             } else if (task.status === 'failed') {
                                 statusColor = 'bg-red-500';
                                 progressWidth = 0;
@@ -92,6 +93,19 @@
                                 progressWidth = 0;
                             }
 
+                            // Safely parse output_files from a string to an array
+                            let outputFiles = [];
+                            try {
+                                if (task.output_files) {
+                                    outputFiles = JSON.parse(task.output_files);
+                                }
+                            } catch (e) {
+                                console.error("Failed to parse output_files JSON:", e);
+                            }
+
+                            // Display params as a formatted JSON string
+                            const paramsString = task.params ? JSON.stringify(task.params, null, 2) : 'N/A';
+                            
                             row.innerHTML = `
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.id}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">${task.input_path}</td>
@@ -107,9 +121,10 @@
                                     </div>
                                     <span class="mt-1 block text-xs text-gray-500">${task.progress}%</span>
                                 </td>
+                                <td class="px-6 py-4 text-sm text-gray-500 whitespace-pre-wrap">${paramsString}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    ${task.output_files.length > 0 ? 
-                                        task.output_files.map(file => `<a href="#" class="text-blue-500 hover:underline">${file.split('/').pop()}</a>`).join(', ')
+                                    ${outputFiles.length > 0 ? 
+                                        outputFiles.map(file => `<a href="#" class="text-blue-500 hover:underline">${file.split('/').pop()}</a>`).join('<br>')
                                         : 'N/A'
                                     }
                                 </td>
@@ -119,7 +134,7 @@
                     }
                 } catch (error) {
                     console.error("Failed to fetch tasks:", error);
-                    tableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-sm text-red-500">Error loading tasks. Please check the server.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">Error loading tasks. Please check the server.</td></tr>`;
                 } finally {
                     loading.classList.add('hidden');
                 }
@@ -132,4 +147,3 @@
     </script>
 </body>
 </html>
-
