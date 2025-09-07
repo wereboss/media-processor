@@ -17,11 +17,18 @@
             height: 8px;
             border-radius: 9999px;
             background-color: #e5e7eb;
+            width: 240px; /* Fixed width for the bar container */
         }
         .progress-fill {
             height: 100%;
             border-radius: 9999px;
             transition: width 0.3s ease-in-out;
+        }
+        /* Custom class for wrapping long file paths */
+        .file-path-cell {
+            white-space: normal;
+            word-wrap: break-word;
+            max-width: 250px; /* Adjust as needed */
         }
     </style>
 </head>
@@ -68,6 +75,9 @@
                     const response = await fetch('/api/tasks');
                     const tasks = await response.json();
                     
+                    // NEW DEBUG LOG: Inspect the data received from the API
+                    console.log("Tasks received from API:", tasks);
+
                     tableBody.innerHTML = '';
                     if (tasks.length === 0) {
                         tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No tasks found.</td></tr>`;
@@ -96,7 +106,7 @@
                             // Safely parse output_files from a string to an array
                             let outputFiles = [];
                             try {
-                                if (task.output_files) {
+                                if (task.output_files && typeof task.output_files === 'string' && task.output_files.trim() !== '') {
                                     outputFiles = JSON.parse(task.output_files);
                                 }
                             } catch (e) {
@@ -104,11 +114,14 @@
                             }
 
                             // Display params as a formatted JSON string
-                            const paramsString = task.params ? JSON.stringify(task.params, null, 2) : 'N/A';
+                            const paramsString = task.processing_params ? JSON.stringify(task.processing_params, null, 2) : 'N/A';
                             
+                            // Truncate the file path to the last 50 characters
+                            const filePathDisplay = task.file_path.length > 50 ? '...' + task.file_path.slice(-50) : task.file_path;
+
                             row.innerHTML = `
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.id}</td>
-                                <td class="px-6 py-4 text-sm text-gray-500">${task.input_path}</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 file-path-cell">${filePathDisplay}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor} text-white">
                                         ${task.status}
@@ -116,7 +129,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.processor}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <div class="progress-bar w-24">
+                                    <div class="progress-bar">
                                         <div class="progress-fill ${statusColor}" style="width: ${progressWidth}%;"></div>
                                     </div>
                                     <span class="mt-1 block text-xs text-gray-500">${task.progress}%</span>
@@ -125,7 +138,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     ${outputFiles.length > 0 ? 
                                         outputFiles.map(file => `<a href="#" class="text-blue-500 hover:underline">${file.split('/').pop()}</a>`).join('<br>')
-                                        : 'N/A'
+                                        : ''
                                     }
                                 </td>
                             `;
