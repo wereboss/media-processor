@@ -50,7 +50,9 @@ class HevcScaleProcessor(Processor):
         if os.path.exists(output_path):
             self.logger.debug(f"Output file '{output_path}' already exists. Deleting it.")
             os.remove(output_path)
-
+        output_path_db = [output_path]
+        self.db.update_task_status(task_id, 'processing')
+        self.db.update_task_output_files(task_id,json.dumps(output_path_db))
 
         command = [
             'ffmpeg',
@@ -67,10 +69,11 @@ class HevcScaleProcessor(Processor):
         duration = self._get_video_duration(input_path)
         
         self.logger.debug(f"FFmpeg command: {' '.join(command)}")
-
+        output_lines = []            
         try:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             for line in iter(process.stderr.readline, ''):
+                output_lines.append(line)
                 time_match = re.search(r"time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})", line)
                 if time_match and duration:
                     h, m, s, cs = map(int, time_match.groups())
@@ -80,12 +83,13 @@ class HevcScaleProcessor(Processor):
                     self.db.update_task_progress(task_id, progress)
 
             process.wait()
-            
+
             if process.returncode != 0:
                 stdout, stderr = process.communicate()
                 self.logger.error(f"FFmpeg process for '{input_path}' failed with return code {process.returncode}.")
                 self.logger.error(f"STDOUT: {stdout}")
                 self.logger.error(f"STDERR: {stderr}")
+                self.db.update_task_status(task_id, 'failed', error_message=''.join(output_lines))
                 return None
             
             self.logger.info(f"FFmpeg process for '{input_path}' completed successfully.")

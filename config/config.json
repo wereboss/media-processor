@@ -3,6 +3,7 @@
     "output_parent_folder": "/home/sayang/Programs/MediaProcessing/PyScripts/outbox",
     "database_path": "/home/sayang/Programs/MediaProcessing/PyScripts/media-processor/data/progress.db",
     "monitoring_interval": 5,
+    "staleness_check_count": 3,
     "processors": 
       [
         {
