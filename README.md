@@ -55,14 +55,14 @@ You will need the following software installed on your machine to run the projec
 
 
 
-1. **Clone the Repository:** \
+1. **Clone the Repository:** 
 ```
-git clone https://github.com/wereboss/media-processor.git \
-cd media-processor \
+git clone https://github.com/wereboss/media-processor.git 
+cd media-processor 
 ```
-2. **Install Python Dependencies:** \
+2. **Install Python Dependencies:** 
 ```
-pip install Flask \
+pip install Flask 
 ```
 
 
@@ -70,26 +70,29 @@ pip install Flask \
 
 Your project should be organized as follows. Create the empty folders as shown below.
 ```
-. \
-├── config/ \
-│   ├── config.json \
-│   └── dashboard/ \
-│       └── config.json \
-├── src/ \
-│   ├── database.py \
-│   ├── file_monitor.py \
-│   ├── media_controller.py \
-│   └── processors/ \
-│       ├── __init__.py \
-│       └── hevc_scale_processor.py \
-│       └── volume_scaler_processor.py \
-├── main.py \
-├── test_runner.py \
-├── README.md \
-├── inbox/ \
-│   └── video_HEVC_height/ \
-│       └── 360/ \
-├── outbox/ \
+. 
+├── config/ 
+│   ├── config.json 
+├── src/ 
+│   └── dashboard/ 
+│   │   └── app.py 
+│   │   └── config.json 
+│   │   └── templates/
+│   │       └── index.html 
+│   ├── database.py 
+│   ├── file_monitor.py 
+│   ├── media_controller.py 
+│   └── processors/ 
+│       ├── __init__.py 
+│       └── hevc_scale_processor.py 
+│       └── volume_scaler_processor.py 
+├── main.py 
+├── test_runner.py 
+├── README.md 
+├── inbox/ 
+│   └── video_HEVC_height/ 
+│       └── 360/ 
+├── outbox/ 
 ```
 
 
@@ -119,28 +122,28 @@ The config/config.json file controls the core processing logic.
     * ```output_path```: The output sub-folder for this processor's output.
     * ```output_file_extension```: (Optional) The desired file extension for the output file.
 ```
-{ \
-    "input_parent_folder": "inbox", \
-    "output_parent_folder": "outbox", \
-    "database_path": "data/progress.db", \
-    "monitoring_interval": 5, \
-    "processors": [ \
-        { \
-            "name": "HEVC Scaler", \
-            "input_path": "video_HEVC_height", \
-            "processor": "hevc_scale_processor", \
-            "output_path": "video_HEVC", \
-            "output_file_extension": "mp4" \
-        }, \
-        { \
-          "name": "Volume Scaler", \
-          "input_path": "video_volume_increase", \
-          "processor": "volume_scaler_processor", \
-          "output_path": "video_volume", \
-          "output_file_extension": "mp4" \
-        } \
-    ] \
-} \
+{ 
+    "input_parent_folder": "inbox", 
+    "output_parent_folder": "outbox", 
+    "database_path": "data/progress.db", 
+    "monitoring_interval": 5, 
+    "processors": [ 
+        { 
+            "name": "HEVC Scaler", 
+            "input_path": "video_HEVC_height", 
+            "processor": "hevc_scale_processor", 
+            "output_path": "video_HEVC", 
+            "output_file_extension": "mp4" 
+        }, 
+        { 
+          "name": "Volume Scaler", 
+          "input_path": "video_volume_increase", 
+          "processor": "volume_scaler_processor", 
+          "output_path": "video_volume", 
+          "output_file_extension": "mp4" 
+        } 
+    ] 
+} 
 ```
 
 
@@ -154,12 +157,12 @@ The src/dashboard/config.json file configures the web dashboard.
 * host: The host IP address for the Flask server. Use 0.0.0.0 to make it accessible from other machines on the network.
 * port: The port number for the Flask server.
 ```
-{ \
-    "database_path": "../../data/progress.db", \
-    "host": "0.0.0.0", \
-    "port": 5000, \
-    "refresh_interval_seconds": 3 \
-} \
+{
+    "database_path": "../../data/progress.db", 
+    "host": "0.0.0.0", 
+    "port": 5000, 
+    "refresh_interval_seconds": 3 
+} 
 ```
 
 
@@ -170,7 +173,7 @@ The src/dashboard/config.json file configures the web dashboard.
 
 From the project's root directory, run the main.py script with your configuration file.
 ```
-python3 main.py config/config.json --debug \
+python3 main.py config/config.json --debug 
 ```
 
 
@@ -178,8 +181,8 @@ python3 main.py config/config.json --debug \
 
 Navigate to the dashboard directory and run app.py.
 ```
-cd src/dashboard/ \
-python3 app.py \
+cd src/dashboard/ 
+python3 app.py 
 ```
 
 You can then access the dashboard by navigating to http://&lt;your-machine-ip>:5000 in your web browser.
