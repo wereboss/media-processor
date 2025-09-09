@@ -203,6 +203,52 @@ def test_volume_scaler(config, logger):
     db.close()
     logger.info("--- Volume Scaler Test Finished ---")
 
+def test_hevc_bitrate_scaler(config, logger):
+    """Tests the HEVC Bitrate Scaler processor with hardcoded inputs."""
+    logger.info("--- Starting HEVC Bitrate Scaler Test ---")
+
+    # Initialize a temporary database
+    try:
+        db = Database(config=config, debug=True)
+        db.initialize_database()
+    except Exception as e:
+        logger.error(f"Error initializing database for HEVC Bitrate Scaler test: {e}")
+        return
+
+    # Initialize HEVC Bitrate Scaler processor
+    try:
+        # Get the processor instance
+        processors = load_processors(config, db, True)
+        hevc_bitrate_scaler = processors.get("HEVC Bitrate Scaler")
+        
+        # Hardcoded inputs to simulate a task from the MediaController
+        input_file = os.path.join(os.path.dirname(__file__), 'tests', 'sample_video.mp4')
+        task_id = 1
+        params = ["200"] # 200k bitrate
+
+        # We assume the mock video file from the HEVC Scaler test is available
+        if not os.path.exists(input_file):
+            logger.error(f"Mock video file not found at {input_file}. Please run 'python3 test_runner.py hevc_scaler' first.")
+            return
+
+        logger.info(f"Testing HEVC Bitrate Scaler with file: {input_file}")
+        
+        # Call the process method directly
+        output_files = hevc_bitrate_scaler.process(input_file, task_id, params)
+
+        # Check if output files were returned
+        if output_files:
+            logger.info("HEVC Bitrate Scaler test completed successfully.")
+            logger.info(f"Generated output files: {output_files}")
+        else:
+            logger.error("HEVC Bitrate Scaler test failed: No output files were returned.")
+        
+    except Exception as e:
+        logger.error(f"Error running HEVC Bitrate Scaler test: {e}")
+    
+    db.close()
+    logger.info("--- HEVC Bitrate Scaler Test Finished ---")
+
 
 def test_file_monitor_purge(config, logger):
     """Tests the FileMonitor's purge_completed_inputs method."""
@@ -285,7 +331,7 @@ def test_media_controller(config, logger):
 def main():
     """Main function to run the test suite."""
     parser = argparse.ArgumentParser(description="Run tests for media processor components.")
-    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading', 'hevc_scaler', 'volume_scaler', 'file_monitor_purge'],
+    parser.add_argument('test_component', type=str, choices=['file_monitor', 'media_controller', 'processor_loading', 'hevc_scaler', 'volume_scaler', 'file_monitor_purge', 'hevc_bitrate_scaler'],
                         help='The component to test.')
     parser.add_argument('--config_path', type=str, default='config/config.json',
                         help='Path to the configuration file.')
@@ -316,6 +362,8 @@ def main():
         test_volume_scaler(config, logger)
     elif args.test_component == 'file_monitor_purge':
         test_file_monitor_purge(config, logger)
+    elif args.test_component == 'hevc_bitrate_scaler':
+        test_hevc_bitrate_scaler(config, logger)
     
 if __name__ == "__main__":
     main()

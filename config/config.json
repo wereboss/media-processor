@@ -19,6 +19,13 @@
           "processor": "volume_scaler_processor",
           "output_path": "video_volume",
           "output_file_extension": "mp4"
+        },
+        {
+          "name": "HEVC Bitrate Scaler",
+          "input_path": "video_HEVC_bitrate",
+          "processor": "hevc_bitrate_processor",
+          "output_path": "video_HEVC",
+          "output_file_extension": "mp4"
         }
       ]
 }

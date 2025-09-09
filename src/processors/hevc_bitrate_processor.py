@@ -1,11 +1,16 @@
-import subprocess
 import os
 import re
 import json
+import subprocess
 import logging
+import time
 from . import Processor
 
-class HevcScaleProcessor(Processor):
+class HevcBitrateProcessor(Processor):
+    """
+    Processor for scaling the bitrate of a video file using HEVC codec,
+    while also increasing the audio volume.
+    """
     def __init__(self, config, db, debug=False):
         super().__init__(config, db, debug)
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -13,7 +18,7 @@ class HevcScaleProcessor(Processor):
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)
-        self.logger.debug("HevcScaleProcessor initialized.")
+        self.logger.debug("HevcBitrateProcessor initialized.")
 
     def _get_video_duration(self, input_path):
         """Gets video duration using ffprobe."""
@@ -30,14 +35,15 @@ class HevcScaleProcessor(Processor):
         self.logger.debug(f"Received input_path: {input_path}")
         self.logger.debug(f"Received params: {params}")
 
-        # Retrieve parameters from the dictionary
-        height = params[0]
-        output_path_suffix = self.processor_config.get('output_path')
-        output_extension = self.processor_config.get('output_file_extension')
+        # Retrieve parameters from the list
+        bitrate = params[0]
+        proc_config = self.processor_config
+        output_path_suffix = proc_config.get('output_path')
+        output_extension = proc_config.get('output_file_extension')
         
         # Ensure mandatory parameters are provided
-        if not height:
-            raise ValueError("Height parameter is missing from processing params.")
+        if not bitrate:
+            raise ValueError("Bitrate parameter is missing from processing params.")
         if not output_path_suffix:
             raise ValueError("Output path prefix is missing from processing params.")
         if not output_extension:
@@ -52,14 +58,13 @@ class HevcScaleProcessor(Processor):
             os.remove(output_path)
         output_path_db = [output_path]
         self.db.update_task_status(task_id, 'processing')
-        self.db.update_task_output_files(task_id,json.dumps(output_path_db))
+        self.db.update_task_output_files(task_id, json.dumps(output_path_db))
 
         command = [
             'ffmpeg',
             '-i', input_path,
-            '-vf', f'scale=-2:{height}',
             '-c:v', 'libx265',
-            '-crf', '28',
+            '-b:v', f'{bitrate}k',
             '-preset', 'fast',
             '-c:a', 'aac',
             '-af', 'volume=2.0',
@@ -70,7 +75,7 @@ class HevcScaleProcessor(Processor):
         duration = self._get_video_duration(input_path)
         
         self.logger.debug(f"FFmpeg command: {' '.join(command)}")
-        output_lines = []            
+        output_lines = []
         try:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             for line in iter(process.stderr.readline, ''):
@@ -80,6 +85,7 @@ class HevcScaleProcessor(Processor):
                     h, m, s, cs = map(int, time_match.groups())
                     current_time = h * 3600 + m * 60 + s + cs / 100
                     progress = (current_time / duration) * 100
+                    if progress > 100: progress = 99.99
                     self.logger.debug(f"Calculated progress: {progress:.2f}%")
                     self.db.update_task_progress(task_id, progress)
 
@@ -98,8 +104,9 @@ class HevcScaleProcessor(Processor):
             
         except FileNotFoundError:
             self.logger.error(f"FFmpeg or FFprobe not found. Please ensure they are installed and in your system's PATH.")
+            self.db.update_task_status(task_id, 'failed', error_message="FFmpeg or FFprobe not found in PATH.")
             return None
         except Exception as e:
             self.logger.error(f"FFmpeg processing failed: {e}")
+            self.db.update_task_status(task_id, 'failed', error_message=str(e))
             return None
-
